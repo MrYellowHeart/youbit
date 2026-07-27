@@ -51,6 +51,10 @@ nullframes_option = typer.Option(
     False,
     help="Whether or not to use nullframes. See the README.md for more information.",
 )
+password_option = typer.Option(
+    None,
+    help="Optional password to encrypt the file. If not provided, file will not be encrypted.",
+)
 
 
 @app.command("encode", no_args_is_help=True)
@@ -66,6 +70,7 @@ def encode_local(
     bpp: int = bpp_option,
     crf: int = crf_option,
     null_frames: bool = nullframes_option,
+    password: str = password_option,
 ) -> None:
     from rich.console import Console
     from youbit import Encoder
@@ -77,6 +82,7 @@ def encode_local(
         ecc_symbols=ecc,
         constant_rate_factor=crf,
         null_frames=null_frames,
+        encryption_password=password,
     )
     encoder = Encoder(input_path, settings)
 
@@ -86,6 +92,8 @@ def encode_local(
 
     console.rule(":green_circle:[bold green]Succes[/]:green_circle:")
     console.print(f"[green]File saved at: {output_path}.[/]")
+    if password:
+        console.print(f"[yellow]⚠️  File is encrypted. Remember your password![/]")
 
 
 @app.command("upload", no_args_is_help=True)
@@ -106,6 +114,7 @@ def encode_upload(
     bpp: int = bpp_option,
     crf: int = crf_option,
     nullframes: bool = nullframes_option,
+    password: str = password_option,
 ) -> None:
     from rich.status import Status
     from rich.console import Console
@@ -123,6 +132,7 @@ def encode_upload(
         constant_rate_factor=crf,
         null_frames=nullframes,
         browser=Browser[browser.name],
+        encryption_password=password,
     )
     encoder = Encoder(input_path, settings)
     url = encoder.encode_and_upload()
@@ -130,6 +140,8 @@ def encode_upload(
     status.stop()
     console.rule(":green_circle:[bold green]Succes[/]:green_circle:")
     console.print(f"[bold green]>>> [link={url}]{url}[/link] <<<[/]")
+    if password:
+        console.print(f"[yellow]⚠️  File is encrypted. Remember your password![/]")
 
 
 @app.command("decode", no_args_is_help=True)
