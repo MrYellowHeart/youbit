@@ -14,17 +14,26 @@ class Metadata:
     filename: Optional[str] = None
     md5_hash: Optional[str] = None
     youbit_version: str = version("youbit")
+    encryption_enabled: bool = False
+    encryption_salt: Optional[bytes] = None
+    encryption_algorithm: str = "AES256-GCM"
 
     def __init__(
         self,
         settings: Optional[Settings] = None,
         filename: Optional[str] = None,
         md5_hash: Optional[str] = None,
+        encryption_enabled: bool = False,
+        encryption_salt: Optional[bytes] = None,
+        encryption_algorithm: str = "AES256-GCM",
     ) -> None:
         self.settings = settings
         self.filename = filename
         self.md5_hash = md5_hash
         self.youbit_version = version("youbit")
+        self.encryption_enabled = encryption_enabled
+        self.encryption_salt = encryption_salt
+        self.encryption_algorithm = encryption_algorithm
 
     @staticmethod
     def create_from_base64(b64: str) -> Metadata:
