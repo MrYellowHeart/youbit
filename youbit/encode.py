@@ -16,6 +16,11 @@ from youbit.tempdir import TempDir
 from youbit.transform import bytes_to_pixels
 from youbit.upload import Uploader
 from youbit.video import VideoEncoder
+from youbit.encryption import (
+    encrypt_data,
+    pack_encrypted_data,
+    generate_salt,
+)
 
 
 class Encoder:
@@ -59,8 +64,16 @@ class Encoder:
         zipped_path = tempdir.path / "zipped.bin"
         self._zip_file(zipped_path)
 
+        # Apply encryption if password is set
+        if self._settings.encryption_enabled:
+            encrypted_path = tempdir.path / "encrypted.bin"
+            self._encrypt_file(zipped_path, encrypted_path)
+            data_to_encode = encrypted_path
+        else:
+            data_to_encode = zipped_path
+
         video_encoder = VideoEncoder(output, self._settings)
-        for chunk in self._read_chunks(zipped_path):
+        for chunk in self._read_chunks(data_to_encode):
             if self._settings.ecc_symbols:
                 chunk = apply_ecc(chunk, self._settings.ecc_symbols)
             pixels = bytes_to_pixels(chunk, self._settings.bits_per_pixel)
@@ -74,6 +87,35 @@ class Encoder:
             output_path, "wb"
         ) as f_out:
             shutil.copyfileobj(f_in, f_out)
+
+    def _encrypt_file(self, input_path: Path, output_path: Path) -> None:
+        """Encrypt a file and write encrypted data with salt and nonce prepended.
+        
+        The format is: [packed: salt + nonce + ciphertext]
+        The salt and nonce are stored in metadata for later decryption.
+        """
+        if not self._settings.encryption_password:
+            raise ValueError("Encryption password not set in settings")
+        
+        # Read the file to encrypt
+        with open(input_path, "rb") as f:
+            plaintext = f.read()
+        
+        # Encrypt
+        salt, nonce, ciphertext = encrypt_data(
+            plaintext,
+            self._settings.encryption_password
+        )
+        
+        # Pack and write
+        packed_data = pack_encrypted_data(salt, nonce, ciphertext)
+        with open(output_path, "wb") as f:
+            f.write(packed_data)
+        
+        # Store salt and nonce in metadata for decryption
+        self._metadata.encryption_enabled = True
+        self._metadata.encryption_salt = salt
+        self._metadata.encryption_algorithm = "AES256-GCM"
 
     def _archive_dir_with_readme(self, input_directory: Path, output: Path) -> Path:
         """Adds readme to given directory and archives its contens."""
