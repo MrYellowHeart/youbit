@@ -9,6 +9,10 @@ from youbit.ecc.ecc import remove_ecc
 from youbit.detransform import pixels_to_bytes
 from youbit.download import Downloader
 from youbit.video import VideoDecoder
+from youbit.encryption import (
+    decrypt_data,
+    unpack_encrypted_data,
+)
 
 
 def download_and_decode(url: str, output_dir: Path) -> Path:
@@ -53,10 +57,70 @@ def decode_local(
             file.write(bytes_arr)
     video_decoder.close()
 
+    # Handle decryption if needed
+    if metadata.encryption_enabled:
+        encrypted_path = still_zipped_path
+        still_zipped_path = tempdir.path / "decrypted.bin"
+        _decrypt_file(encrypted_path, still_zipped_path, metadata)
+
     output_path = _create_valid_path(output_dir, metadata)
     _unzip_file(still_zipped_path, output_path)
     tempdir.close()
     return output_path
+
+
+def _decrypt_file(
+    encrypted_path: Path, output_path: Path, metadata: Metadata
+) -> None:
+    """Decrypt a file that was encrypted during encoding.
+    
+    Args:
+        encrypted_path: Path to encrypted file (contains packed salt + nonce + ciphertext)
+        output_path: Path to write decrypted data
+        metadata: Metadata containing encryption salt and settings
+        
+    Raises:
+        ValueError: If decryption fails or password is incorrect
+    """
+    if not metadata.encryption_enabled:
+        raise ValueError("File metadata indicates encryption is not enabled")
+    
+    if not metadata.encryption_salt:
+        raise ValueError("Encryption salt not found in metadata")
+    
+    # Read encrypted data
+    with open(encrypted_path, "rb") as f:
+        packed_data = f.read()
+    
+    # Unpack to get salt, nonce, and ciphertext
+    salt, nonce, ciphertext = unpack_encrypted_data(packed_data)
+    
+    # Prompt for password
+    password = _prompt_for_password()
+    
+    # Decrypt
+    try:
+        plaintext = decrypt_data(ciphertext, password, salt, nonce)
+    except ValueError as e:
+        raise ValueError(
+            f"Decryption failed. Check that you entered the correct password. Details: {str(e)}"
+        )
+    
+    # Write decrypted data
+    with open(output_path, "wb") as f:
+        f.write(plaintext)
+
+
+def _prompt_for_password() -> str:
+    """Prompt user for decryption password (securely, without echoing).
+    
+    Returns:
+        str: Password entered by user
+    """
+    import getpass
+    
+    password = getpass.getpass("Enter decryption password: ")
+    return password
 
 
 def _unzip_file(input_file: Path, output_path: Path) -> None:
