@@ -32,6 +32,7 @@ class Settings:
     _constant_rate_factor: int = 18
     _null_frames: bool = False
     _browser: Optional[Browser] = None
+    _encryption_password: Optional[str] = None
 
     def __init__(
         self,
@@ -41,6 +42,7 @@ class Settings:
         constant_rate_factor: int = 18,
         null_frames: bool = False,
         browser: Optional[Browser] = None,
+        encryption_password: Optional[str] = None,
     ) -> None:
         self.resolution = resolution
         self.bits_per_pixel = bits_per_pixel
@@ -48,6 +50,7 @@ class Settings:
         self.constant_rate_factor = constant_rate_factor
         self.null_frames = null_frames
         self.browser = browser
+        self.encryption_password = encryption_password
 
     @property
     def resolution(self) -> Resolution:
@@ -108,3 +111,20 @@ class Settings:
         if not isinstance(value, Browser) and value is not None:
             raise ValueError("Value must be a Browser or None.")
         self._browser = value
+
+    @property
+    def encryption_password(self) -> Optional[str]:
+        return self._encryption_password
+
+    @encryption_password.setter
+    def encryption_password(self, value: Optional[str]) -> None:
+        if not isinstance(value, str) and value is not None:
+            raise ValueError("Value must be a string or None.")
+        if isinstance(value, str) and not value:
+            raise ValueError("Encryption password cannot be an empty string.")
+        self._encryption_password = value
+
+    @property
+    def encryption_enabled(self) -> bool:
+        """Returns True if encryption is enabled."""
+        return self._encryption_password is not None
